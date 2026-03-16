@@ -174,3 +174,17 @@ target_link_libraries(evo-circuit-evolution
     PUBLIC evo-circuit-core
     PUBLIC cgp-plusplus-impl
 )
+
+# ── Timing benchmark (profiling manual) ────────────────────────────────────
+add_executable(timing_benchmark profiling/timing_benchmark.cpp)
+target_include_directories(timing_benchmark PRIVATE
+    include
+    extern/cgp-plusplus
+)
+target_link_libraries(timing_benchmark PRIVATE
+    evo-circuit-evolution
+    spdlog::spdlog fmt::fmt
+)
+target_compile_options(timing_benchmark PRIVATE
+    -Wno-shadow -Wno-vla -Wno-pedantic
+)
