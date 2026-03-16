@@ -10,6 +10,7 @@
 #include "evo-circuit/core/PhenotypeCache.hpp"
 #include "evo-circuit/core/DirtyMask.hpp"
 #include "evo-circuit/core/LutNode.hpp"
+#include "evo-circuit/core/LutFunctionSet.hpp"
 
 using namespace evo_circuit;
 
