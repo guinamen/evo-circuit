@@ -28,11 +28,11 @@
 namespace evo_circuit {
 
 struct EvolverConfig {
-    int       n_nodes         = 50;
+    int       n_nodes         = 10;   ///< 10 nós é suficiente para funções simples
     int       lambda          = 4;
-    int       levels_back     = 50;
+    int       levels_back     = 10;   ///< levels_back=n_nodes: topologia livre
     float     mutation_rate   = 0.05f;
-    long long max_evals       = 1'000'000LL;
+    long long max_evals       = 100'000LL; ///< 100k suficiente para and/xor/mux
     long long seed            = 42LL;
     bool      verbose         = false;
     int       report_interval = 10000;
