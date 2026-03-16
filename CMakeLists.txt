@@ -38,17 +38,33 @@ endif()
 # ── Dependências externas ──────────────────────────────────────────────────
 
 # cgp-plusplus — sem CMakeLists.txt próprio; expõe headers via INTERFACE
-if(EXISTS "${CMAKE_SOURCE_DIR}/extern/cgp-plusplus/src")
+if(EXISTS "${CMAKE_SOURCE_DIR}/extern/cgp-plusplus")
     add_library(cgp-plusplus INTERFACE)
+
+# cgp-plusplus possui dois .cpp que precisam de compilação
+add_library(cgp-plusplus-impl STATIC
+    extern/cgp-plusplus/parameters/Parameters.cpp
+    extern/cgp-plusplus/random/Random.cpp
+)
+target_include_directories(cgp-plusplus-impl PUBLIC extern/cgp-plusplus)
+target_compile_features(cgp-plusplus-impl PUBLIC cxx_std_17)
     target_include_directories(cgp-plusplus INTERFACE
-        extern/cgp-plusplus/src
+        extern/cgp-plusplus
     )
-    message(STATUS "cgp-plusplus: headers em extern/cgp-plusplus/src")
+    message(STATUS "cgp-plusplus: headers em extern/cgp-plusplus")
 else()
     message(WARNING "cgp-plusplus não encontrado em extern/cgp-plusplus — "
                     "execute: git submodule update --init extern/cgp-plusplus")
     add_library(cgp-plusplus INTERFACE)
-    target_include_directories(cgp-plusplus INTERFACE extern/cgp-plusplus/src)
+
+# cgp-plusplus possui dois .cpp que precisam de compilação
+add_library(cgp-plusplus-impl STATIC
+    extern/cgp-plusplus/parameters/Parameters.cpp
+    extern/cgp-plusplus/random/Random.cpp
+)
+target_include_directories(cgp-plusplus-impl PUBLIC extern/cgp-plusplus)
+target_compile_features(cgp-plusplus-impl PUBLIC cxx_std_17)
+    target_include_directories(cgp-plusplus INTERFACE extern/cgp-plusplus)
 endif()
 
 # SQLiteCpp
@@ -99,7 +115,7 @@ target_include_directories(evo-circuit-core
 )
 
 target_link_libraries(evo-circuit-core
-    PUBLIC cgp-plusplus xsimd OpenMP::OpenMP_CXX
+    PUBLIC cgp-plusplus cgp-plusplus-impl xsimd OpenMP::OpenMP_CXX
 )
 
 # ── Executável principal (placeholder) ────────────────────────────────────
@@ -124,3 +140,19 @@ message(STATUS "  C++ standard : ${CMAKE_CXX_STANDARD}")
 message(STATUS "  JIT (LLVM)   : ${EVO_CIRCUIT_JIT}")
 message(STATUS "  Testes       : ${EVO_CIRCUIT_TESTS}")
 message(STATUS "═══════════════════════════════════════════════")
+
+# ── Biblioteca evolution (Fase 2) ──────────────────────────────────────────
+add_library(evo-circuit-evolution
+    src/evolution/BooleanEvolver.cpp
+)
+
+target_include_directories(evo-circuit-evolution
+    PUBLIC  include
+    # Expõe todos os headers do cgp-plusplus para quem usar esta lib
+    PUBLIC  extern/cgp-plusplus
+)
+
+target_link_libraries(evo-circuit-evolution
+    PUBLIC evo-circuit-core
+    PUBLIC cgp-plusplus-impl
+)
