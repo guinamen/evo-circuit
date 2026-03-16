@@ -48,6 +48,9 @@ add_library(cgp-plusplus-impl STATIC
 )
 target_include_directories(cgp-plusplus-impl PUBLIC extern/cgp-plusplus)
 target_compile_features(cgp-plusplus-impl PUBLIC cxx_std_17)
+target_compile_options(cgp-plusplus-impl PRIVATE
+    -Wno-shadow -Wno-vla -Wno-pedantic
+)
     target_include_directories(cgp-plusplus INTERFACE
         extern/cgp-plusplus
     )
@@ -64,6 +67,9 @@ add_library(cgp-plusplus-impl STATIC
 )
 target_include_directories(cgp-plusplus-impl PUBLIC extern/cgp-plusplus)
 target_compile_features(cgp-plusplus-impl PUBLIC cxx_std_17)
+target_compile_options(cgp-plusplus-impl PRIVATE
+    -Wno-shadow -Wno-vla -Wno-pedantic
+)
     target_include_directories(cgp-plusplus INTERFACE extern/cgp-plusplus)
 endif()
 

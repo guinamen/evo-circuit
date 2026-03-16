@@ -37,6 +37,9 @@ target_link_libraries(test_phase2 PRIVATE
     Catch2::Catch2WithMain
 )
 target_compile_definitions(test_phase2 PRIVATE
+target_compile_options(test_phase2 PRIVATE
+    -Wno-shadow -Wno-vla -Wno-pedantic
+)
     CATCH_CONFIG_FAST_COMPILE
 )
 # CTest executa a partir de CMAKE_SOURCE_DIR para que find_plu() encontre
