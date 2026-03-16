@@ -107,6 +107,7 @@ public:
         // ── PASSOS 3–6 ─────────────────────────────────────────────────
         init.init_functions();
         init.init_composite();
+        init.init_erc();
         init.init_problem();
         init.init_algorithm();
 
