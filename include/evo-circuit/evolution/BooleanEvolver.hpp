@@ -2,25 +2,28 @@
 // =============================================================================
 // BooleanEvolver.hpp — ES (1+λ) para síntese de circuitos booleanos
 //
-// ORDEM CORRETA de inicialização (crítica):
-//   1. read_data()                  — lê .plu, seta num_variables e num_outputs
-//   2. init_comandline_parameters() — usa num_outputs; chama set_genome_size()
-//   3. init_functions()
-//   4. init_composite()
-//   5. init_problem()
-//   6. init_algorithm()
-//   7. get_algorithm()->evolve()
+// FIXES aplicados (histórico de diagnóstico):
+//   - population_size setado ANTES de read_data() e finalize()
+//     → sem esse fix, set_eval_chunk_size() usava tamanho inválido
+//     → filhos não avaliados → fitness sempre igual ao pai inicial
+//   - EvoCircuitInitializer usa FunctionSet próprio {AND,OR,XOR,NOT,NAND,NOR,XNOR}
+//     em vez de FunctionsBoolean {AND,OR,NAND,NOR} do cgp-plusplus
+//   - Sequência correta: setters → set_population_size → read_data()
+//     → finalize → init_functions → init_composite → init_erc
+//     → init_problem → init_checkpoint → init_algorithm → evolve
 // =============================================================================
 
 #include <string>
 #include <utility>
 #include <memory>
-#include <iostream>
 #include <chrono>
+#include <stdexcept>
 
 #include "composite/Composite.h"
 #include "algorithm/OnePlusLambda.h"
-#include "initializer/LogicSynthesisInitializer.h"
+#include "initializer/BlackBoxInitializer.h"
+#include "problems/LogicSynthesisProblem.h"
+#include "evo-circuit/evolution/EvoCircuitFunctions.hpp"
 
 namespace evo_circuit {
 
@@ -31,7 +34,7 @@ struct EvolverConfig {
     float     mutation_rate   = 0.05f;
     long long max_evals       = 1'000'000LL;
     long long seed            = 42LL;
-    bool      verbose         = true;
+    bool      verbose         = false;
     int       report_interval = 10000;
 };
 
@@ -42,6 +45,28 @@ struct EvolveResult {
     double    wall_ms;
 };
 
+// ── Inicializador com FunctionSet do evo-circuit ──────────────────────────
+template<class E, class G, class F>
+class EvoCircuitInitializer : public BlackBoxInitializer<E, G, F> {
+public:
+    explicit EvoCircuitInitializer(const std::string& plu)
+        : BlackBoxInitializer<E, G, F>(plu) {}
+
+    void init_functions() override {
+        this->functions =
+            std::make_shared<EvoCircuitFunctions<E>>(this->parameters);
+    }
+
+    void init_problem() override {
+        auto problem = std::make_shared<LogicSynthesisProblem<E, G, F>>(
+            this->parameters, this->evaluator,
+            this->inputs, this->outputs,
+            this->constants, this->num_instances);
+        this->composite->set_problem(problem);
+    }
+};
+
+// ── BooleanEvolver ────────────────────────────────────────────────────────
 class BooleanEvolver {
 public:
     explicit BooleanEvolver(const std::string& plu_file,
@@ -52,66 +77,60 @@ public:
     EvolveResult run() {
         auto t0 = std::chrono::steady_clock::now();
 
-        LogicSynthesisInitializer<unsigned long, int, int> init(plu_file_);
+        EvoCircuitInitializer<unsigned long, int, int> init(plu_file_);
+        auto p = init.get_parameters();
 
-        // Flags que não dependem do .plu — configurar antes de qualquer chamada
-        auto params = init.get_parameters();
-        params->set_neutral_genetic_drift(true);
-        params->set_evaluate_expression(false);
-        params->set_minimizing_fitness(true);
-        params->set_report_simple(cfg_.verbose);
-        params->set_report_during_job(cfg_.verbose);
-        params->set_report_after_job(cfg_.verbose);
-        params->set_report_interval(cfg_.report_interval);
-        params->set_write_statfile(false);
-        params->set_checkpointing(false);
+        // ── Configurar parâmetros ─────────────────────────────────────
+        p->set_num_function_nodes(cfg_.n_nodes);
+        p->set_num_functions(7);   // AND OR XOR NOT NAND NOR XNOR
+        p->set_max_arity(2);
+        p->set_num_constants(0);
+        p->set_num_parents(1);
+        p->set_num_offspring(cfg_.lambda);
+
+        // FIX CRÍTICO: population_size deve ser setado ANTES de
+        // finalize_parameter_configuration(), que chama
+        // set_eval_chunk_size() — que asserta pop_size > 0.
+        p->set_population_size(1 + cfg_.lambda);
+
+        p->set_levels_back(cfg_.levels_back);
+        p->set_mutation_rate(cfg_.mutation_rate);
+        p->set_mutation_type(p->PROBABILISTIC_POINT_MUTATION);
+        p->set_crossover_rate(0.0f);
+        p->set_algorithm(p->ONE_PLUS_LAMBDA);
+        p->set_problem(p->LOGIC_SYNTHESIS);
+        p->set_max_fitness_evaluations(cfg_.max_evals);
+        p->set_max_generations(cfg_.max_evals);
+        p->set_ideal_fitness(0);
+        p->set_minimizing_fitness(true);
+        p->set_neutral_genetic_drift(true);
+        p->set_evaluate_expression(false);
+        p->set_num_jobs(1);
+        p->set_num_eval_threads(1);
+        p->set_write_statfile(false);
+        p->set_checkpointing(false);
+        p->set_report_simple(cfg_.verbose);
+        p->set_report_during_job(cfg_.verbose);
+        p->set_report_after_job(cfg_.verbose);
+        p->set_report_interval(cfg_.report_interval);
 
         if (cfg_.seed > 0) {
-            params->set_generate_random_seed(false);
-            params->set_global_seed(cfg_.seed);
+            p->set_generate_random_seed(false);
+            p->set_global_seed(cfg_.seed);
         } else {
-            params->set_generate_random_seed(true);
+            p->set_generate_random_seed(true);
         }
 
-        // ── PASSO 1: read_data() OBRIGATORIAMENTE PRIMEIRO ────────────
-        // Lê .plu → chama set_num_variables() + set_num_outputs()
-        // Sem isso, set_genome_size() dentro de init_comandline_parameters
-        // falha com assert(num_outputs > 0)
-        init.read_data();
-
-        // ── PASSO 2: init_comandline_parameters ────────────────────────
-        // n_variables=-1 e n_outputs=-1: não sobrescreve valores do .plu
-        init.init_comandline_parameters(
-            /*algorithm*/          0,
-            /*n_nodes*/            cfg_.n_nodes,
-            /*n_variables*/       -1,
-            /*n_constants*/        0,
-            /*n_outputs*/         -1,
-            /*n_functions*/        4,
-            /*max_arity*/          2,
-            /*n_parents*/          1,
-            /*n_offspring*/        cfg_.lambda,
-            /*mutation_rate*/      cfg_.mutation_rate,
-            /*max_fitness_evals*/  cfg_.max_evals,
-            /*ideal_fitness*/      0,
-            /*n_jobs*/             1,
-            /*global_seed*/        cfg_.seed > 0 ? cfg_.seed : -1LL,
-            /*duplication_rate*/  -1.0f,
-            /*max_dup_depth*/     -1,
-            /*inversion_rate*/    -1.0f,
-            /*max_inv_depth*/     -1,
-            /*crossover_rate*/     0.0f,
-            /*levels_back*/        cfg_.levels_back
-        );
-
-        // ── PASSOS 3–6 ─────────────────────────────────────────────────
+        // ── Sequência correta de inicialização ────────────────────────
+        init.read_data();                        // seta num_inputs, num_outputs
+        init.finalize_parameter_configuration(); // set_genome_size, eval_chunk_size
         init.init_functions();
         init.init_composite();
         init.init_erc();
         init.init_problem();
+        init.init_checkpoint();
         init.init_algorithm();
 
-        // ── PASSO 7: evoluir ───────────────────────────────────────────
         std::pair<int, int> result = init.get_algorithm()->evolve();
 
         auto t1 = std::chrono::steady_clock::now();
