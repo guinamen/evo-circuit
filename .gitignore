@@ -1,0 +1,40 @@
+# Build
+build/
+cmake-build-*/
+*.o
+*.a
+*.so
+*.dylib
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Banco de dados SQLite (não versionado conforme doc)
+data/evo_circuit.db
+data/*.db
+
+# Outputs de evolução
+*.plu.out
+*.dot
+*.blif
+*.v.synth
+
+# Cobertura
+*.gcno
+*.gcda
+lcov.info
+coverage/

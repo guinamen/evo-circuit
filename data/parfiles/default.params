@@ -1,0 +1,9 @@
+# Parâmetros padrão — Fase 1
+grid_rows     5
+grid_cols     10
+k_max         2
+lambda        4
+mutation_rate 0.05
+active_bias   0.7
+lut_ratio     0.0
+max_gens      1000000

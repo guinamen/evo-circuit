@@ -1,0 +1,9 @@
+[submodule "extern/cgp-plusplus"]
+	path = extern/cgp-plusplus
+	url = https://github.com/RomanKalkreuth/cgp-plusplus
+[submodule "extern/SQLiteCpp"]
+	path = extern/SQLiteCpp
+	url = https://github.com/SRombauts/SQLiteCpp
+[submodule "extern/xsimd"]
+	path = extern/xsimd
+	url = https://github.com/xtensor-stack/xsimd
