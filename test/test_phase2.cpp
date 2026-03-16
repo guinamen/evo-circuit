@@ -1,13 +1,15 @@
 // =============================================================================
 // test_phase2.cpp — Testes e evolução real da Fase 2
 //
-// Benchmark: even-parity 4-bit
-//   4 entradas, 16 padrões (2^4) codificados em bitmasks uint32
-//   Function set: {AND, OR, NAND, NOR}  — XOR(a,b) requer ~4 nós
-//   Critério: fitness=0 (todos os 16 padrões corretos)
+// Benchmark: full adder 1-bit (add1c.plu)
+//   3 entradas (a, b, cin), 2 saídas (sum, carry)
+//   sum   = XOR(a, b, cin)  → implementável com ~8 nós NAND
+//   carry = MAJ(a, b, cin)  → implementável com ~3 nós AND/OR
+//   Function set: {AND=0, OR=1, NAND=2, NOR=3}
+//   Gradiente real: AND(a,b) já reduz fitness de 8 para 6
 //
-// Critério de aceitação (Fase 2):
-//   ≥ 4/5 runs convergem em ≤ 1.000.000 avaliações
+// Critério de aceitação (Fase 2, doc seção 14):
+//   ES (1+4) converge em ≤ 1.000.000 avaliações em ≥ 4/5 runs
 // =============================================================================
 
 #include <catch2/catch_test_macros.hpp>
@@ -23,11 +25,8 @@ using namespace evo_circuit;
 namespace fs = std::filesystem;
 
 static std::string find_plu(const std::string& name) {
-    const std::vector<std::string> bases = {
-        "", "../", "../../"
-    };
-    for (const auto& b : bases) {
-        std::string p = b + "data/plufiles/" + name;
+    for (const auto& base : {"", "../", "../../"}) {
+        std::string p = std::string(base) + "data/plufiles/" + name;
         if (fs::exists(p)) return p;
     }
     return "data/plufiles/" + name;
@@ -55,18 +54,18 @@ TEST_CASE("BooleanFitness normalizado entre 0 e 1", "[fase2][fitness]")
 
 // ── Teste de construção ───────────────────────────────────────────────────
 
-TEST_CASE("BooleanEvolver constroi sem excecao com epar4.plu", "[fase2][init]")
+TEST_CASE("BooleanEvolver constroi sem excecao com add1c.plu", "[fase2][init]")
 {
     EvolverConfig cfg;
     cfg.verbose = false;
     REQUIRE_NOTHROW([&]() {
-        BooleanEvolver evolver(find_plu("epar4.plu"), cfg);
+        BooleanEvolver evolver(find_plu("add1c.plu"), cfg);
     }());
 }
 
 // ── Smoke test ────────────────────────────────────────────────────────────
 
-TEST_CASE("BooleanEvolver evolui even-parity 4-bit (smoke test)", "[fase2][evolution]")
+TEST_CASE("BooleanEvolver evolui full-adder 1-bit (smoke test)", "[fase2][evolution]")
 {
     EvolverConfig cfg;
     cfg.n_nodes       = 50;
@@ -76,26 +75,25 @@ TEST_CASE("BooleanEvolver evolui even-parity 4-bit (smoke test)", "[fase2][evolu
     cfg.seed          = 1LL;
     cfg.verbose       = false;
 
-    BooleanEvolver evolver(find_plu("epar4.plu"), cfg);
+    BooleanEvolver evolver(find_plu("add1c.plu"), cfg);
     EvolveResult r = evolver.run();
 
     INFO("Avaliações: " << r.evals
          << " | Fitness: " << r.fitness
          << " | Wall: "    << r.wall_ms << " ms");
 
-    // Smoke: deve completar sem exceção com valores válidos
     REQUIRE(r.fitness >= 0);
     REQUIRE(r.evals   >  0);
     REQUIRE(r.evals   <= cfg.max_evals);
 
     if (r.success)
-        std::cout << "[SUCESSO] even-parity 4-bit em "
+        std::cout << "[SUCESSO] full-adder 1-bit em "
                   << r.evals << " avaliações ("
                   << r.wall_ms << " ms)\n";
     else
         std::cout << "[INFO] Não convergiu (seed=" << cfg.seed
                   << "). Fitness residual: " << r.fitness
-                  << " de 16 bits\n";
+                  << " de 16 bits (2 saídas × 8 padrões)\n";
 }
 
 // ── Teste estatístico ─────────────────────────────────────────────────────
@@ -114,7 +112,7 @@ TEST_CASE("BooleanEvolver: taxa de sucesso >= 80% em 5 runs", "[fase2][stats]")
 
     for (int run = 0; run < N_RUNS; ++run) {
         cfg.seed = static_cast<long long>(run + 1);
-        BooleanEvolver evolver(find_plu("epar4.plu"), cfg);
+        BooleanEvolver evolver(find_plu("add1c.plu"), cfg);
         EvolveResult r = evolver.run();
 
         std::cout << "  Run " << (run+1) << "/" << N_RUNS
@@ -129,6 +127,5 @@ TEST_CASE("BooleanEvolver: taxa de sucesso >= 80% em 5 runs", "[fase2][stats]")
     std::cout << "Taxa de sucesso: " << successes << "/" << N_RUNS
               << " (" << (rate * 100.0) << "%)\n";
 
-    // Critério Fase 2: ≥ 80% de sucesso
     REQUIRE(successes >= static_cast<int>(N_RUNS * 0.8));
 }

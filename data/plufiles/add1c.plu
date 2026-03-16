@@ -1,8 +1,5 @@
-# Half-adder 1-bit: sum = XOR(a,b), carry = AND(a,b)
-# Formato: n_inputs n_outputs
-# Linhas: input_vector output_vector
-2 2
-00 00
-01 10
-10 10
-11 01
+.i 3
+.o 2
+.p 1
+240 204 170   232 150 
+.e
