@@ -35,6 +35,13 @@ if(EVO_CIRCUIT_WARNINGS)
     add_compile_options(-Wall -Wextra -Wpedantic -Wshadow -Wno-unused-parameter)
 endif()
 
+# spdlog: habilitar TRACE em Debug, DEBUG em Release
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_compile_definitions(SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
+else()
+    add_compile_definitions(SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
+endif()
+
 # ── Dependências externas ──────────────────────────────────────────────────
 
 # cgp-plusplus — sem CMakeLists.txt próprio; expõe headers via INTERFACE
@@ -100,6 +107,10 @@ endif()
 # OpenMP
 find_package(OpenMP REQUIRED)
 
+# spdlog — logging estruturado
+find_package(spdlog REQUIRED)
+find_package(fmt REQUIRED)
+
 # LLVM OrcJIT (opcional)
 if(EVO_CIRCUIT_JIT)
     find_package(LLVM 17 REQUIRED CONFIG)
@@ -122,6 +133,7 @@ target_include_directories(evo-circuit-core
 
 target_link_libraries(evo-circuit-core
     PUBLIC cgp-plusplus cgp-plusplus-impl xsimd OpenMP::OpenMP_CXX
+    PUBLIC spdlog::spdlog fmt::fmt
 )
 
 # ── Executável principal (placeholder) ────────────────────────────────────
